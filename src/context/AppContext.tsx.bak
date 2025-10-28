@@ -1,7 +1,5 @@
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
-import { Customer, RepairJob, Product, Sale } from '../types'; // Remove DashboardStats
-
-// ... rest of the code remains same;
+import { Customer, RepairJob, Product, Sale, DashboardStats } from '../types';
 
 interface AppState {
   customers: Customer[];

@@ -123,17 +123,20 @@ const RepairJobRow: React.FC<{ job: RepairJob }> = ({ job }) => {
   const { dispatch } = useApp();
 
   const handleStatusUpdate = async (newStatus: RepairJob['status']) => {
-  try {
-    const updates: Partial<RepairJob> = { status: newStatus };
-    if (newStatus === 'completed') {
-      updates.completedDate = new Date();
+    try {
+      const updates = { status: newStatus };
+      if (newStatus === 'completed') {
+        updates.completedDate = new Date();
+      }
+      await repairJobService.updateRepairJob(job.id, updates);
+      dispatch({
+        type: 'UPDATE_REPAIR_JOB',
+        payload: { ...job, ...updates }
+      });
+    } catch (error) {
+      console.error('Error updating repair job:', error);
     }
-    await repairJobService.updateRepairJob(job.id, updates);
-    // ... rest of code
-  } catch (error) {
-    console.error('Error updating repair job:', error);
-  }
-};
+  };
 
   return (
     <tr className="hover:bg-gray-50">

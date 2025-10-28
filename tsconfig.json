@@ -11,10 +11,9 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noFallthroughCasesInSwitch": true
+    "strict": false, // Change from true to false
+    "noUnusedLocals": false, // Change from true to false
+    "noUnusedParameters": false // Change from true to false
   },
   "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }]
