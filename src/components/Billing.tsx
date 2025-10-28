@@ -1,0 +1,449 @@
+import React, { useState } from 'react';
+import { useApp } from '../context/AppContext';
+import { saleService, repairJobService } from '../services/firebaseService';
+import { Sale, RepairJob, SaleItem } from '../types';
+import { Plus, Search, FileText } from 'lucide-react';
+import { formatCurrency, generateInvoiceNumber, calculateGST } from '../utils/helpers';
+
+const Billing: React.FC = () => {
+  const { state, dispatch } = useApp();
+  const [showBillingForm, setShowBillingForm] = useState(false);
+
+  const completedJobs = state.repairJobs.filter(job => 
+    job.status === 'completed' && !state.sales.find(sale => sale.repairJobId === job.id)
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Billing & Invoices</h1>
+          <p className="text-gray-600">Generate bills and manage payments</p>
+        </div>
+        <button
+          onClick={() => setShowBillingForm(true)}
+          disabled={completedJobs.length === 0}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+        >
+          <Plus className="w-5 h-5" />
+          <span>Create Bill</span>
+        </button>
+      </div>
+
+      {/* Sales List */}
+      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+        <div className="px-6 py-4 border-b">
+          <h3 className="text-lg font-semibold text-gray-900">Recent Invoices</h3>
+        </div>
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Invoice
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Customer
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Amount
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Payment
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Date
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {state.sales.map((sale) => (
+              <SaleRow key={sale.id} sale={sale} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Billing Form Modal */}
+      {showBillingForm && (
+        <BillingForm 
+          completedJobs={completedJobs}
+          onClose={() => setShowBillingForm(false)}
+        />
+      )}
+    </div>
+  );
+};
+
+const SaleRow: React.FC<{ sale: Sale }> = ({ sale }) => {
+  const { state } = useApp();
+  const customer = state.customers.find(c => c.id === sale.customerId);
+  const repairJob = state.repairJobs.find(j => j.id === sale.repairJobId);
+
+  const handlePrintInvoice = () => {
+    // Implement invoice printing
+    window.print();
+  };
+
+  return (
+    <tr className="hover:bg-gray-50">
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="text-sm font-medium text-gray-900">
+          {sale.invoiceNumber}
+        </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="text-sm text-gray-900">
+          {customer?.name || 'Unknown Customer'}
+        </div>
+        <div className="text-sm text-gray-500">
+          {repairJob?.deviceBrand} {repairJob?.deviceModel}
+        </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="text-sm font-medium text-gray-900">
+          {formatCurrency(sale.totalAmount)}
+        </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="text-sm text-gray-900 capitalize">
+          {sale.paymentMethod.replace('_', ' ')}
+        </div>
+        <div className={`text-xs font-semibold ${
+          sale.paid ? 'text-green-600' : 'text-red-600'
+        }`}>
+          {sale.paid ? 'Paid' : 'Unpaid'}
+        </div>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {new Date(sale.date).toLocaleDateString()}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+        <button
+          onClick={handlePrintInvoice}
+          className="text-blue-600 hover:text-blue-900 flex items-center space-x-1"
+        >
+          <FileText className="w-4 h-4" />
+          <span>Invoice</span>
+        </button>
+      </td>
+    </tr>
+  );
+};
+
+const BillingForm: React.FC<{ 
+  completedJobs: RepairJob[];
+  onClose: () => void;
+}> = ({ completedJobs, onClose }) => {
+  const { state, dispatch } = useApp();
+  const [selectedJobId, setSelectedJobId] = useState<string>('');
+  const [saleItems, setSaleItems] = useState<SaleItem[]>([]);
+  const [paymentMethod, setPaymentMethod] = useState<Sale['paymentMethod']>('cash');
+  const [isPaid, setIsPaid] = useState(true);
+
+  const selectedJob = completedJobs.find(job => job.id === selectedJobId);
+  const products = state.products;
+
+  const subtotal = saleItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const gstAmount = calculateGST(subtotal);
+  const totalAmount = subtotal + gstAmount;
+
+  const handleAddItem = (product: any) => {
+    const existingItem = saleItems.find(item => item.productId === product.id);
+    
+    if (existingItem) {
+      setSaleItems(prev => prev.map(item =>
+        item.productId === product.id
+          ? { ...item, quantity: item.quantity + 1 }
+          : item
+      ));
+    } else {
+      setSaleItems(prev => [...prev, {
+        productId: product.id,
+        name: product.name,
+        price: product.currentPrice,
+        quantity: 1,
+        type: product.category
+      }]);
+    }
+
+    // Update stock if it's an accessory
+    if (product.category === 'accessory' && product.stockQuantity) {
+      // This would typically update the product in the database
+      console.log(`Reducing stock for ${product.name} from ${product.stockQuantity}`);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedJob || saleItems.length === 0) return;
+
+    try {
+      const saleData = {
+        repairJobId: selectedJob.id,
+        customerId: selectedJob.customerId,
+        items: saleItems,
+        subtotal,
+        gstAmount,
+        totalAmount,
+        paymentMethod,
+        invoiceNumber: generateInvoiceNumber(),
+        date: new Date(),
+        paid: isPaid
+      };
+
+      const saleId = await saleService.addSale(saleData);
+
+      // Update repair job status to delivered if paid
+      if (isPaid) {
+        await repairJobService.updateRepairJob(selectedJob.id, {
+          status: 'delivered',
+          finalCost: totalAmount
+        });
+      }
+
+      dispatch({
+        type: 'ADD_SALE',
+        payload: { id: saleId, ...saleData }
+      });
+
+      if (isPaid) {
+        dispatch({
+          type: 'UPDATE_REPAIR_JOB',
+          payload: {
+            ...selectedJob,
+            status: 'delivered',
+            finalCost: totalAmount
+          }
+        });
+      }
+
+      onClose();
+    } catch (error) {
+      console.error('Error creating sale:', error);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="px-6 py-4 border-b">
+          <h2 className="text-xl font-semibold text-gray-900">Create Bill</h2>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Job Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Select Repair Job *
+            </label>
+            <select
+              required
+              value={selectedJobId}
+              onChange={(e) => setSelectedJobId(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">Choose a completed repair job</option>
+              {completedJobs.map(job => (
+                <option key={job.id} value={job.id}>
+                  {job.customerName} - {job.deviceBrand} {job.deviceModel} - {formatCurrency(job.estimatedCost)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {selectedJob && (
+            <>
+              {/* Customer and Device Info */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="font-medium text-gray-900 mb-2">Job Details</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-600">Customer:</span>
+                    <div className="font-medium">{selectedJob.customerName}</div>
+                    <div className="text-gray-500">{selectedJob.customerPhone}</div>
+                  </div>
+                  <div>
+                    <span className="text-gray-600">Device:</span>
+                    <div className="font-medium">
+                      {selectedJob.deviceBrand} {selectedJob.deviceModel}
+                    </div>
+                  </div>
+                  <div className="col-span-2">
+                    <span className="text-gray-600">Problem:</span>
+                    <div className="font-medium">{selectedJob.problemDescription}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Product Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Add Services & Accessories
+                </label>
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  {products.map(product => (
+                    <button
+                      key={product.id}
+                      type="button"
+                      onClick={() => handleAddItem(product)}
+                      disabled={product.category === 'accessory' && (!product.stockQuantity || product.stockQuantity <= 0)}
+                      className="p-3 border border-gray-300 rounded-lg text-left hover:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <div className="font-medium text-gray-900">{product.name}</div>
+                      <div className="text-sm text-gray-600">
+                        {formatCurrency(product.currentPrice)}
+                        {product.category === 'accessory' && (
+                          <span className="ml-2">(Stock: {product.stockQuantity || 0})</span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Selected Items */}
+              {saleItems.length > 0 && (
+                <div>
+                  <h3 className="text-sm font-medium text-gray-700 mb-2">Selected Items</h3>
+                  <div className="border rounded-lg">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                            Item
+                          </th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                            Price
+                          </th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                            Qty
+                          </th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                            Total
+                          </th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {saleItems.map((item, index) => (
+                          <tr key={index}>
+                            <td className="px-4 py-2 text-sm">{item.name}</td>
+                            <td className="px-4 py-2 text-sm">{formatCurrency(item.price)}</td>
+                            <td className="px-4 py-2">
+                              <input
+                                type="number"
+                                min="1"
+                                value={item.quantity}
+                                onChange={(e) => {
+                                  const newItems = [...saleItems];
+                                  newItems[index].quantity = parseInt(e.target.value);
+                                  setSaleItems(newItems);
+                                }}
+                                className="w-20 px-2 py-1 border border-gray-300 rounded"
+                              />
+                            </td>
+                            <td className="px-4 py-2 text-sm">
+                              {formatCurrency(item.price * item.quantity)}
+                            </td>
+                            <td className="px-4 py-2">
+                              <button
+                                type="button"
+                                onClick={() => setSaleItems(prev => prev.filter((_, i) => i !== index))}
+                                className="text-red-600 hover:text-red-900 text-sm"
+                              >
+                                Remove
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Payment Details */}
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Payment Method *
+                  </label>
+                  <select
+                    required
+                    value={paymentMethod}
+                    onChange={(e) => setPaymentMethod(e.target.value as Sale['paymentMethod'])}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="card">Card</option>
+                    <option value="upi">UPI</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Payment Status
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="checkbox"
+                      checked={isPaid}
+                      onChange={(e) => setIsPaid(e.target.checked)}
+                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className="text-sm text-gray-700">Mark as Paid</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Summary */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span>Subtotal:</span>
+                    <span>{formatCurrency(subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>GST (18%):</span>
+                    <span>{formatCurrency(gstAmount)}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-lg border-t pt-2">
+                    <span>Total:</span>
+                    <span>{formatCurrency(totalAmount)}</span>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Form Actions */}
+          <div className="flex justify-end space-x-3 pt-6 border-t">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!selectedJob || saleItems.length === 0}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              Generate Invoice
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default Billing;

@@ -1,0 +1,24 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Customers collection
+    match /customers/{document} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Repair jobs collection
+    match /repairJobs/{document} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Products collection
+    match /products/{document} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Sales collection
+    match /sales/{document} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

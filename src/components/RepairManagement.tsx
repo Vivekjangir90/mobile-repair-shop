@@ -1,0 +1,540 @@
+import React, { useState } from 'react';
+import { useApp } from '../context/AppContext';
+import { repairJobService, customerService, fileService } from '../services/firebaseService';
+import { RepairJob, Customer } from '../types';
+import { Plus, Search, Upload, Camera } from 'lucide-react';
+import { formatCurrency, formatDate, getStatusColor } from '../utils/helpers';
+
+const RepairManagement: React.FC = () => {
+  const { state, dispatch } = useApp();
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+
+  const filteredJobs = state.repairJobs.filter(job => {
+    const matchesSearch = job.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         job.customerPhone.includes(searchTerm) ||
+                         job.deviceModel.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = selectedStatus === 'all' || job.status === selectedStatus;
+    return matchesSearch && matchesStatus;
+  });
+
+  const statusCounts = {
+    all: state.repairJobs.length,
+    pending: state.repairJobs.filter(job => job.status === 'pending').length,
+    in_progress: state.repairJobs.filter(job => job.status === 'in_progress').length,
+    completed: state.repairJobs.filter(job => job.status === 'completed').length,
+    delivered: state.repairJobs.filter(job => job.status === 'delivered').length,
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Repair Management</h1>
+          <p className="text-gray-600">Manage all repair jobs and track their progress</p>
+        </div>
+        <button
+          onClick={() => setShowAddForm(true)}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center space-x-2 hover:bg-blue-700"
+        >
+          <Plus className="w-5 h-5" />
+          <span>Add New Repair</span>
+        </button>
+      </div>
+
+      {/* Stats and Filters */}
+      <div className="grid grid-cols-5 gap-4">
+        {Object.entries(statusCounts).map(([status, count]) => (
+          <div
+            key={status}
+            onClick={() => setSelectedStatus(status)}
+            className={`p-4 rounded-lg cursor-pointer transition-colors ${
+              selectedStatus === status
+                ? 'bg-blue-100 border-2 border-blue-500'
+                : 'bg-white border border-gray-200 hover:border-blue-300'
+            }`}
+          >
+            <div className="text-2xl font-bold text-gray-900">{count}</div>
+            <div className="text-sm font-medium text-gray-600 capitalize">
+              {status.replace('_', ' ')}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Search */}
+      <div className="bg-white rounded-lg shadow-sm border p-4">
+        <div className="relative">
+          <Search className="w-5 h-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by customer name, phone, or device model..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div>
+      </div>
+
+      {/* Repair Jobs Table */}
+      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Customer & Device
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Problem
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Cost
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Status
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Date
+              </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Actions
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {filteredJobs.map((job) => (
+              <RepairJobRow key={job.id} job={job} />
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Add Repair Form Modal */}
+      {showAddForm && (
+        <AddRepairForm onClose={() => setShowAddForm(false)} />
+      )}
+    </div>
+  );
+};
+
+const RepairJobRow: React.FC<{ job: RepairJob }> = ({ job }) => {
+  const { dispatch } = useApp();
+
+  const handleStatusUpdate = async (newStatus: RepairJob['status']) => {
+    try {
+      const updates = { status: newStatus };
+      if (newStatus === 'completed') {
+        updates.completedDate = new Date();
+      }
+      await repairJobService.updateRepairJob(job.id, updates);
+      dispatch({
+        type: 'UPDATE_REPAIR_JOB',
+        payload: { ...job, ...updates }
+      });
+    } catch (error) {
+      console.error('Error updating repair job:', error);
+    }
+  };
+
+  return (
+    <tr className="hover:bg-gray-50">
+      <td className="px-6 py-4">
+        <div>
+          <div className="text-sm font-medium text-gray-900">
+            {job.customerName}
+          </div>
+          <div className="text-sm text-gray-500">{job.customerPhone}</div>
+          <div className="text-sm text-gray-600">
+            {job.deviceBrand} {job.deviceModel}
+          </div>
+        </div>
+      </td>
+      <td className="px-6 py-4">
+        <div className="text-sm text-gray-900 max-w-xs">
+          {job.problemDescription}
+        </div>
+        {job.receivedAccessories.length > 0 && (
+          <div className="text-xs text-gray-500 mt-1">
+            Accessories: {job.receivedAccessories.join(', ')}
+          </div>
+        )}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <div className="text-sm text-gray-900">
+          Est: {formatCurrency(job.estimatedCost)}
+        </div>
+        {job.finalCost && (
+          <div className="text-sm font-medium text-green-600">
+            Final: {formatCurrency(job.finalCost)}
+          </div>
+        )}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap">
+        <select
+          value={job.status}
+          onChange={(e) => handleStatusUpdate(e.target.value as RepairJob['status'])}
+          className={`text-xs font-semibold px-2 py-1 rounded-full border-0 focus:ring-2 focus:ring-blue-500 ${getStatusColor(job.status)}`}
+        >
+          <option value="pending">PENDING</option>
+          <option value="in_progress">IN PROGRESS</option>
+          <option value="completed">COMPLETED</option>
+          <option value="delivered">DELIVERED</option>
+        </select>
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+        {formatDate(new Date(job.createdDate))}
+      </td>
+      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+        <button className="text-blue-600 hover:text-blue-900 mr-3">
+          Edit
+        </button>
+        <button className="text-green-600 hover:text-green-900">
+          Bill
+        </button>
+      </td>
+    </tr>
+  );
+};
+
+const AddRepairForm: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  const { dispatch } = useApp();
+  const [formData, setFormData] = useState({
+    customerName: '',
+    customerPhone: '',
+    email: '',
+    deviceBrand: '',
+    deviceModel: '',
+    problemDescription: '',
+    receivedAccessories: [] as string[],
+    estimatedCost: 0,
+    notes: ''
+  });
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [existingCustomer, setExistingCustomer] = useState<Customer | null>(null);
+
+  const accessoryOptions = [
+    'Charger', 'Cable', 'Case', 'Screen Guard', 'Battery', 'Earphones', 'SIM Card', 'Memory Card'
+  ];
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      // Check if customer exists
+      let customer = await customerService.findCustomerByPhone(formData.customerPhone);
+      
+      if (!customer) {
+        // Create new customer
+        const customerId = await customerService.addCustomer({
+          name: formData.customerName,
+          phone: formData.customerPhone,
+          email: formData.email,
+          createdDate: new Date()
+        });
+        customer = {
+          id: customerId,
+          name: formData.customerName,
+          phone: formData.customerPhone,
+          email: formData.email,
+          createdDate: new Date()
+        };
+      }
+
+      // Create repair job
+      const jobId = await repairJobService.addRepairJob({
+        customerId: customer.id,
+        customerName: customer.name,
+        customerPhone: customer.phone,
+        deviceBrand: formData.deviceBrand,
+        deviceModel: formData.deviceModel,
+        problemDescription: formData.problemDescription,
+        receivedAccessories: formData.receivedAccessories,
+        photos: [], // Will be updated after upload
+        estimatedCost: formData.estimatedCost,
+        status: 'pending',
+        createdDate: new Date(),
+        notes: formData.notes
+      });
+
+      // Upload photos
+      const photoUrls = [];
+      for (const photo of photos) {
+        const url = await fileService.uploadPhoto(photo, jobId);
+        photoUrls.push(url);
+      }
+
+      // Update repair job with photo URLs
+      await repairJobService.updateRepairJob(jobId, { photos: photoUrls });
+
+      // Update local state
+      dispatch({
+        type: 'ADD_REPAIR_JOB',
+        payload: {
+          id: jobId,
+          customerId: customer.id,
+          customerName: customer.name,
+          customerPhone: customer.phone,
+          deviceBrand: formData.deviceBrand,
+          deviceModel: formData.deviceModel,
+          problemDescription: formData.problemDescription,
+          receivedAccessories: formData.receivedAccessories,
+          photos: photoUrls,
+          estimatedCost: formData.estimatedCost,
+          status: 'pending',
+          createdDate: new Date(),
+          notes: formData.notes
+        }
+      });
+
+      if (!existingCustomer) {
+        dispatch({ type: 'ADD_CUSTOMER', payload: customer });
+      }
+
+      onClose();
+    } catch (error) {
+      console.error('Error adding repair job:', error);
+    }
+  };
+
+  const handlePhoneSearch = async (phone: string) => {
+    setFormData(prev => ({ ...prev, customerPhone: phone }));
+    
+    if (phone.length >= 10) {
+      const customer = await customerService.findCustomerByPhone(phone);
+      if (customer) {
+        setExistingCustomer(customer);
+        setFormData(prev => ({
+          ...prev,
+          customerName: customer.name,
+          email: customer.email || ''
+        }));
+      } else {
+        setExistingCustomer(null);
+        setFormData(prev => ({ ...prev, customerName: '', email: '' }));
+      }
+    }
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setPhotos(Array.from(e.target.files));
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="px-6 py-4 border-b">
+          <h2 className="text-xl font-semibold text-gray-900">Add New Repair Job</h2>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Customer Details */}
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Phone Number *
+              </label>
+              <input
+                type="tel"
+                required
+                value={formData.customerPhone}
+                onChange={(e) => handlePhoneSearch(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Enter phone number"
+              />
+              {existingCustomer && (
+                <p className="text-sm text-green-600 mt-1">
+                  Existing customer: {existingCustomer.name}
+                </p>
+              )}
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Customer Name *
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.customerName}
+                onChange={(e) => setFormData(prev => ({ ...prev, customerName: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Enter customer name"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Email
+              </label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Enter email address"
+              />
+            </div>
+          </div>
+
+          {/* Device Information */}
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Device Brand *
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.deviceBrand}
+                onChange={(e) => setFormData(prev => ({ ...prev, deviceBrand: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="e.g., Samsung, Apple, Xiaomi"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Device Model *
+              </label>
+              <input
+                type="text"
+                required
+                value={formData.deviceModel}
+                onChange={(e) => setFormData(prev => ({ ...prev, deviceModel: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="e.g., iPhone 14, Galaxy S23"
+              />
+            </div>
+          </div>
+
+          {/* Problem Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Problem Description *
+            </label>
+            <textarea
+              required
+              rows={4}
+              value={formData.problemDescription}
+              onChange={(e) => setFormData(prev => ({ ...prev, problemDescription: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Describe the problem in detail..."
+            />
+          </div>
+
+          {/* Accessories Received */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Accessories Received
+            </label>
+            <div className="grid grid-cols-4 gap-2">
+              {accessoryOptions.map(accessory => (
+                <label key={accessory} className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={formData.receivedAccessories.includes(accessory)}
+                    onChange={(e) => {
+                      const updatedAccessories = e.target.checked
+                        ? [...formData.receivedAccessories, accessory]
+                        : formData.receivedAccessories.filter(a => a !== accessory);
+                      setFormData(prev => ({ ...prev, receivedAccessories: updatedAccessories }));
+                    }}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="text-sm text-gray-700">{accessory}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Photo Upload */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Device Photos
+            </label>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+              <Camera className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={handlePhotoUpload}
+                className="hidden"
+                id="photo-upload"
+              />
+              <label
+                htmlFor="photo-upload"
+                className="cursor-pointer bg-blue-600 text-white px-4 py-2 rounded-lg inline-flex items-center space-x-2 hover:bg-blue-700"
+              >
+                <Upload className="w-4 h-4" />
+                <span>Upload Photos</span>
+              </label>
+              <p className="text-sm text-gray-500 mt-2">
+                Upload photos showing device condition
+              </p>
+              {photos.length > 0 && (
+                <div className="mt-4">
+                  <p className="text-sm font-medium text-gray-700">
+                    {photos.length} photo(s) selected
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Cost Estimation */}
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Estimated Cost (₹)
+              </label>
+              <input
+                type="number"
+                value={formData.estimatedCost}
+                onChange={(e) => setFormData(prev => ({ ...prev, estimatedCost: Number(e.target.value) }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Enter estimated cost"
+              />
+            </div>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Additional Notes
+            </label>
+            <textarea
+              rows={2}
+              value={formData.notes}
+              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Any additional notes..."
+            />
+          </div>
+
+          {/* Form Actions */}
+          <div className="flex justify-end space-x-3 pt-6 border-t">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              Create Repair Job
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+export default RepairManagement;

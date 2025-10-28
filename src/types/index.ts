@@ -1,0 +1,65 @@
+export interface Customer {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  address?: string;
+  createdDate: Date;
+}
+
+export interface RepairJob {
+  id: string;
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  deviceBrand: string;
+  deviceModel: string;
+  problemDescription: string;
+  receivedAccessories: string[];
+  photos: string[];
+  estimatedCost: number;
+  finalCost?: number;
+  status: 'pending' | 'in_progress' | 'completed' | 'delivered';
+  createdDate: Date;
+  completedDate?: Date;
+  notes?: string;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  category: 'service' | 'accessory';
+  defaultPrice: number;
+  currentPrice: number;
+  stockQuantity?: number;
+  lowStockAlert?: number;
+}
+
+export interface Sale {
+  id: string;
+  repairJobId: string;
+  customerId: string;
+  items: SaleItem[];
+  subtotal: number;
+  gstAmount: number;
+  totalAmount: number;
+  paymentMethod: 'cash' | 'card' | 'upi' | 'bank_transfer';
+  invoiceNumber: string;
+  date: Date;
+  paid: boolean;
+}
+
+export interface SaleItem {
+  productId: string;
+  name: string;
+  price: number;
+  quantity: number;
+  type: 'service' | 'accessory';
+}
+
+export interface DashboardStats {
+  todayRepairs: number;
+  pendingJobs: number;
+  completedToday: number;
+  revenueToday: number;
+}

@@ -1,0 +1,80 @@
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { 
+  Home, 
+  Settings, 
+  Users, 
+  Package, 
+  CreditCard,
+  Wrench
+} from 'lucide-react';
+
+const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const location = useLocation();
+
+  const navigation = [
+    { name: 'Dashboard', href: '/', icon: Home },
+    { name: 'Repairs', href: '/repairs', icon: Wrench },
+    { name: 'Billing', href: '/billing', icon: CreditCard },
+    { name: 'Customers', href: '/customers', icon: Users },
+    { name: 'Inventory', href: '/inventory', icon: Package },
+  ];
+
+  return (
+    <div className="flex h-screen bg-gray-50">
+      {/* Sidebar */}
+      <div className="w-64 bg-white shadow-lg">
+        <div className="p-6">
+          <h1 className="text-2xl font-bold text-blue-600">RepairShop</h1>
+          <p className="text-sm text-gray-600">Mobile Repair Management</p>
+        </div>
+        
+        <nav className="mt-6">
+          {navigation.map((item) => {
+            const Icon = item.icon;
+            const isActive = location.pathname === item.href;
+            
+            return (
+              <Link
+                key={item.name}
+                to={item.href}
+                className={`flex items-center px-6 py-3 text-sm font-medium transition-colors ${
+                  isActive
+                    ? 'bg-blue-50 text-blue-600 border-r-2 border-blue-600'
+                    : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <Icon className="w-5 h-5 mr-3" />
+                {item.name}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Main content */}
+      <div className="flex-1 overflow-auto">
+        <header className="bg-white shadow-sm border-b">
+          <div className="px-8 py-4">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-gray-800">
+                {navigation.find(item => item.href === location.pathname)?.name || 'Dashboard'}
+              </h2>
+              <div className="flex items-center space-x-4">
+                <button className="p-2 text-gray-400 hover:text-gray-600">
+                  <Settings className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <main className="p-8">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+};
+
+export default Layout;

@@ -1,0 +1,29 @@
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { AppProvider } from './context/AppContext';
+import Dashboard from './components/Dashboard';
+import RepairManagement from './components/RepairManagement';
+import Billing from './components/Billing';
+import Customers from './components/Customers';
+import Inventory from './components/Inventory';
+import Layout from './components/Layout';
+
+function App() {
+  return (
+    <AppProvider>
+      <Router>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/repairs" element={<RepairManagement />} />
+            <Route path="/billing" element={<Billing />} />
+            <Route path="/customers" element={<Customers />} />
+            <Route path="/inventory" element={<Inventory />} />
+          </Routes>
+        </Layout>
+      </Router>
+    </AppProvider>
+  );
+}
+
+export default App;
