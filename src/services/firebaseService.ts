@@ -2,10 +2,8 @@ import {
   collection,
   addDoc,
   updateDoc,
-  deleteDoc,
   doc,
   getDocs,
-  getDoc,
   query,
   where,
   orderBy,
@@ -121,12 +119,12 @@ export const saleService = {
       query(collection(db, 'sales'), orderBy('date', 'desc'))
     );
     return snapshot.docs.map(doc => ({
-  id: doc.id,
-  ...doc.data(),
-  date: doc.data().date.toDate()
-})) as Sale[];
-
-
+      id: doc.id,
+      ...doc.data(),
+      date: doc.data().date.toDate()
+    })) as Sale[];
+  }
+};
 
 // File Upload Service
 export const fileService = {
