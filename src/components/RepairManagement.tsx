@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-//import { repairJobService, customerService, fileService } from '../services/firebaseService';
+import { repairJobService, customerService, fileService } from '../services/firebaseService';
 import { RepairJob, Customer } from '../types';
 import { Plus, Search, Upload, Camera } from 'lucide-react';
 import { formatCurrency, formatDate, getStatusColor } from '../utils/helpers';
