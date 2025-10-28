@@ -1,4 +1,4 @@
-import React from 'react'; // Keep React import
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
 import Dashboard from './components/Dashboard';

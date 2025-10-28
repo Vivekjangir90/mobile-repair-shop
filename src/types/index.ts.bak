@@ -53,4 +53,13 @@ export interface SaleItem {
   productId: string;
   name: string;
   price: number;
-  quantity: number
+  quantity: number;
+  type: 'service' | 'accessory';
+}
+
+export interface DashboardStats {
+  todayRepairs: number;
+  pendingJobs: number;
+  completedToday: number;
+  revenueToday: number;
+}
