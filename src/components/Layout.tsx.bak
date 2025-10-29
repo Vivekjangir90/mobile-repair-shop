@@ -9,17 +9,6 @@ import {
   Wrench
 } from 'lucide-react';
 
-// 'View' type को 'App.tsx' से यहाँ लाएँ
-type View = 'dashboard' | 'repairs' | 'billing' | 'customers' | 'inventory';
-
-
-interface LayoutProps {
-  children: ReactNode; // यह component के अंदर का content है (जैसे Dashboard, Billing, आदि)
-  setView: Dispatch<SetStateAction<View>>; // Navigation state setter function
-  currentView: View; // Current active view
-}
-
-
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
 
@@ -89,4 +78,3 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 export default Layout;
-

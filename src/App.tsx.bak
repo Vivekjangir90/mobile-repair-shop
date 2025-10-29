@@ -1,29 +1,52 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AppProvider } from './context/AppContext';
+import MainLayout from './components/Layout'; // Assuming you named your layout component MainLayout
+
+// Navigation component imports
 import Dashboard from './components/Dashboard';
-import RepairManagement from './components/RepairManagement';
 import Billing from './components/Billing';
+import RepairManagement from './components/RepairManagement';
 import Customers from './components/Customers';
 import Inventory from './components/Inventory';
-import Layout from './components/Layout';
 
-function App() {
-  return (
-    <AppProvider>
-      <Router>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/repairs" element={<RepairManagement />} />
-            <Route path="/billing" element={<Billing />} />
-            <Route path="/customers" element={<Customers />} />
-            <Route path="/inventory" element={<Inventory />} />
-          </Routes>
-        </Layout>
-      </Router>
-    </AppProvider>
-  );
-}
+// Simple Router state for demonstration
+type View = 'dashboard' | 'repairs' | 'billing' | 'customers' | 'inventory';
+
+const Router: React.FC<{ currentView: View }> = ({ currentView }) => {
+    switch (currentView) {
+        case 'repairs':
+            return <RepairManagement />;
+        case 'billing':
+            return <Billing />;
+        case 'customers':
+            return <Customers />;
+        case 'inventory':
+            return <Inventory />;
+        case 'dashboard':
+        default:
+            return <Dashboard />;
+    }
+};
+
+const AppContent: React.FC = () => {
+    const [currentView, setCurrentView] = React.useState<View>('dashboard');
+    
+    // NOTE: You need to pass setCurrentView down to your Sidebar/Header for navigation!
+    
+    return (
+        // Assuming your MainLayout handles the sidebar and header structure
+        <MainLayout setView={setCurrentView} currentView={currentView}>
+            <Router currentView={currentView} />
+        </MainLayout>
+    );
+};
+
+const App: React.FC = () => {
+    return (
+        <AppProvider>
+            <AppContent />
+        </AppProvider>
+    );
+};
 
 export default App;

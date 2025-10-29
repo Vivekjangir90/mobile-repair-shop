@@ -1,6 +1,6 @@
 import React from 'react';
 import { AppProvider } from './context/AppContext';
-import MainLayout from './components/Layout'; // Assuming you named your layout component MainLayout
+import MainLayout from './components/Layout'; // नाम 'Layout' या 'MainLayout' है
 
 // Navigation component imports
 import Dashboard from './components/Dashboard';
@@ -9,7 +9,7 @@ import RepairManagement from './components/RepairManagement';
 import Customers from './components/Customers';
 import Inventory from './components/Inventory';
 
-// Simple Router state for demonstration
+// Navigation State Type को यहाँ भी रखें
 type View = 'dashboard' | 'repairs' | 'billing' | 'customers' | 'inventory';
 
 const Router: React.FC<{ currentView: View }> = ({ currentView }) => {
@@ -31,10 +31,8 @@ const Router: React.FC<{ currentView: View }> = ({ currentView }) => {
 const AppContent: React.FC = () => {
     const [currentView, setCurrentView] = React.useState<View>('dashboard');
     
-    // NOTE: You need to pass setCurrentView down to your Sidebar/Header for navigation!
-    
     return (
-        // Assuming your MainLayout handles the sidebar and header structure
+        // अब MainLayout प्रॉप्स (props) को स्वीकार करता है, इसलिए यह एरर ठीक हो गई है।
         <MainLayout setView={setCurrentView} currentView={currentView}>
             <Router currentView={currentView} />
         </MainLayout>
