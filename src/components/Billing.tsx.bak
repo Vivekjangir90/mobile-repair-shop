@@ -6,6 +6,27 @@ import { Plus, Search, FileText } from 'lucide-react';
 import { formatCurrency, generateInvoiceNumber, calculateGST } from '../utils/helpers';
 
 
+import React from 'react';
+
+const Billing: React.FC = () => {
+  // ComponentName को बदलकर RepairManagement, Billing, Customers, या Inventory करें।
+  const name = 'Billing'; 
+
+  return (
+    <div className="p-4 bg-white rounded-lg shadow-md min-h-[500px]">
+      <h2 className="text-2xl font-bold text-gray-800">{name} - Module (Work in Progress)</h2>
+      <p className="mt-2 text-gray-600">
+        This is the basic layout for the **{name}** section.
+        Add your functional code here (forms, tables, logic).
+      </p>
+    </div>
+  );
+};
+
+
+
+
+
 const Billing: React.FC = () => {
   const { state, dispatch } = useApp();
   const [showBillingForm, setShowBillingForm] = useState(false);

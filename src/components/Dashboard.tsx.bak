@@ -21,11 +21,9 @@ const Dashboard: React.FC = () => {
   });
   const [recentJobs, setRecentJobs] = useState<RepairJob[]>([]);
 
-   useEffect(() => {
-
+  useEffect(() => {
     loadDashboardData();
-  }, [state]); // ✅ Corrected: Added 'state' to dependencies
-;
+  }, []);
 
   const loadDashboardData = async () => {
     const today = new Date();
