@@ -1,86 +1,61 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { 
-  Home, 
-  Settings, 
-  Users, 
-  Package, 
-  CreditCard,
-  Wrench
-} from 'lucide-react';
+import React, { ReactNode, Dispatch, SetStateAction } from 'react';
 
 // 'View' type को 'App.tsx' से यहाँ लाएँ
 type View = 'dashboard' | 'repairs' | 'billing' | 'customers' | 'inventory';
 
-
+// Layout Component के लिए Props Interface
 interface LayoutProps {
   children: ReactNode; // यह component के अंदर का content है (जैसे Dashboard, Billing, आदि)
   setView: Dispatch<SetStateAction<View>>; // Navigation state setter function
   currentView: View; // Current active view
 }
 
+const Sidebar: React.FC<Pick<LayoutProps, 'setView' | 'currentView'>> = ({ setView, currentView }) => {
+    // Navigation items
+    const navItems: { view: View; name: string }[] = [
+        { view: 'dashboard', name: 'Dashboard' },
+        { view: 'repairs', name: 'Repair Jobs' },
+        { view: 'billing', name: 'Billing' },
+        { view: 'customers', name: 'Customers' },
+        { view: 'inventory', name: 'Inventory' },
+    ];
 
-const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const location = useLocation();
+    return (
+        <aside className="w-64 bg-gray-800 text-white flex-shrink-0 p-4">
+            <h1 className="text-2xl font-bold mb-6 text-blue-400">PWA Shop</h1>
+            <nav className="space-y-2">
+                {navItems.map(item => (
+                    <button
+                        key={item.view}
+                        onClick={() => setView(item.view)}
+                        className={`w-full text-left py-2 px-3 rounded-lg transition duration-150 ${
+                            currentView === item.view ? 'bg-blue-600 font-semibold' : 'hover:bg-gray-700'
+                        }`}
+                    >
+                        {item.name}
+                    </button>
+                ))}
+            </nav>
+        </aside>
+    );
+};
 
-  const navigation = [
-    { name: 'Dashboard', href: '/', icon: Home },
-    { name: 'Repairs', href: '/repairs', icon: Wrench },
-    { name: 'Billing', href: '/billing', icon: CreditCard },
-    { name: 'Customers', href: '/customers', icon: Users },
-    { name: 'Inventory', href: '/inventory', icon: Package },
-  ];
 
+const MainLayout: React.FC<LayoutProps> = ({ children, setView, currentView }) => {
   return (
-    <div className="flex h-screen bg-gray-50">
-      {/* Sidebar */}
-      <div className="w-64 bg-white shadow-lg">
-        <div className="p-6">
-          <h1 className="text-2xl font-bold text-blue-600">RepairShop</h1>
-          <p className="text-sm text-gray-600">Mobile Repair Management</p>
-        </div>
-        
-        <nav className="mt-6">
-          {navigation.map((item) => {
-            const Icon = item.icon;
-            const isActive = location.pathname === item.href;
-            
-            return (
-              <Link
-                key={item.name}
-                to={item.href}
-                className={`flex items-center px-6 py-3 text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-blue-50 text-blue-600 border-r-2 border-blue-600'
-                    : 'text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                <Icon className="w-5 h-5 mr-3" />
-                {item.name}
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
-
-      {/* Main content */}
-      <div className="flex-1 overflow-auto">
-        <header className="bg-white shadow-sm border-b">
-          <div className="px-8 py-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-gray-800">
-                {navigation.find(item => item.href === location.pathname)?.name || 'Dashboard'}
-              </h2>
-              <div className="flex items-center space-x-4">
-                <button className="p-2 text-gray-400 hover:text-gray-600">
-                  <Settings className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-          </div>
+    <div className="flex min-h-screen bg-gray-100">
+      {/* 1. Sidebar */}
+      <Sidebar setView={setView} currentView={currentView} />
+      
+      {/* 2. Main Content Area */}
+      <div className="flex-1 flex flex-col">
+        {/* Header/Title can go here */}
+        <header className="p-4 bg-white shadow-md border-b">
+            <h2 className="text-xl font-medium text-gray-800 capitalize">
+                {currentView}
+            </h2>
         </header>
-
-        <main className="p-8">
+        <main className="p-6 flex-1 overflow-y-auto">
           {children}
         </main>
       </div>
@@ -88,5 +63,4 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   );
 };
 
-export default Layout;
-
+export default MainLayout; // सुनिश्चित करें कि 'MainLayout' एक्सपोर्ट हो रहा है
